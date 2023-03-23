@@ -3,7 +3,7 @@ F_CPU = 16000000UL
 BAUDRATE=115200
 PROGRAMMER= -c arduino -b$(BAUDRATE) -p $(DEVICE)
 
-SRCS = main.c ../uart.c
+SRCS = main.c
 
 BINS = $(SRCS:.c=.bin)
 HEX = main.hex

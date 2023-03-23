@@ -1,7 +1,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
-#include "../uart.h"
 
 #define APA102_START_FRAME 0x0
 #define APA102_END_FRAME 0xFFFFFFFF
