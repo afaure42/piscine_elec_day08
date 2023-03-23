@@ -1,7 +1,6 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
-#include "uart.h"
 
 #define APA102_START_FRAME 0x0
 #define APA102_END_FRAME 0xFFFFFFFF
@@ -10,12 +9,15 @@
 #define LED_D7 1
 #define LED_D8 2
 
-#define APA102_FRAME_HEADER (0b111 << 5)
+#define APA102_FRAME_HEADER ((uint8_t)0b11100000)
+#define BLUE_OFFSET 1
+#define GREEN_OFFSET 2
+#define RED_OFFSET 3
 
 #define MOSI (1 << PB3)
 #define SCK (1 << PB5)
 
-volatile uint32_t g_led_strip[5];
+uint8_t g_led_strip[5 * 4];
 
 void spi_init(void)
 {
@@ -33,15 +35,18 @@ void spi_init(void)
 	//nothing to do to setup MSB first a requested in led APA102 datasheet
 	//since it is default byte order in SPI
 
-	g_led_strip[0] = APA102_START_FRAME;
-	g_led_strip[4] = APA102_END_FRAME;
+	g_led_strip[0] = 0x0; //setting start frame
+	g_led_strip[1] = 0x0;
+	g_led_strip[2] = 0x0;
+	g_led_strip[3] = 0x0;
+	g_led_strip[(4 * 4) +0] = 0xFF; //setting end frame
+	g_led_strip[(4 * 4) +1] = 0xFF;
+	g_led_strip[(4 * 4) +2] = 0xFF;
+	g_led_strip[(4 * 4) +3] = 0xFF;
 }
 
 void spi_send_byte(uint8_t byte)
 {
-	uart_printstr("sending byte:");
-	print_hex_value(byte);
-	uart_printstr("\r\n");
 	SPDR = byte;
 
 	while (!(SPSR & (1<<SPIF)));
@@ -51,7 +56,6 @@ void spi_send_buffer(uint8_t * buffer, uint8_t size)
 {
 	for(uint8_t i = 0; i < size; i++)
 		spi_send_byte(buffer[i]);
-	SPCR &= ~(1 << SPE);
 }
 
 void spi_set_led(uint8_t led_id, uint8_t r, uint8_t g, uint8_t b, uint8_t brightness)
@@ -60,13 +64,15 @@ void spi_set_led(uint8_t led_id, uint8_t r, uint8_t g, uint8_t b, uint8_t bright
 	//[111][brightness] [BLUE]	[GREEN]	[RED]
 	//		8 bits		 		8 bits each
 
-	g_led_strip[1 + led_id] = ((uint32_t)brightness | APA102_FRAME_HEADER) << 24;
-	g_led_strip[1 + led_id] |= ((uint32_t)b << 16) | ((uint32_t)g << 8) | (uint32_t)r;
+	g_led_strip[(1 + led_id) * 4] = brightness | APA102_FRAME_HEADER;
+	g_led_strip[(1 + led_id) * 4 + BLUE_OFFSET] = b;
+	g_led_strip[(1 + led_id) * 4 + GREEN_OFFSET] = g;
+	g_led_strip[(1 + led_id) * 4 + RED_OFFSET] = r;
 }
 
 void update_strip(void)
 {
-	spi_send_buffer((uint8_t *)g_led_strip, 5 * 4);
+	spi_send_buffer(g_led_strip, 5 * 4);
 }
 
 int main()
